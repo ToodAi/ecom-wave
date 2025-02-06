@@ -1,24 +1,36 @@
 import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import ProductList from '../components/ProductList';
 import Cart from '../components/Cart';
 import SearchBar from '../components/SearchBar';
 import { useToast } from '../components/ui/use-toast';
-import { ShoppingCart } from 'lucide-react';
+import { ShoppingCart, User } from 'lucide-react';
 import { Button } from '../components/ui/button';
 import { Sheet, SheetContent, SheetTrigger } from '../components/ui/sheet';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 const Index = () => {
   const [products, setProducts] = useState([]);
   const [filteredProducts, setFilteredProducts] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [categories, setCategories] = useState([]);
+  const [selectedCategory, setSelectedCategory] = useState('all');
   const [cartItems, setCartItems] = useState(() => {
     const savedCart = localStorage.getItem('cart');
     return savedCart ? JSON.parse(savedCart) : [];
   });
   const { toast } = useToast();
+  const navigate = useNavigate();
 
   useEffect(() => {
     fetchProducts();
+    fetchCategories();
   }, []);
 
   useEffect(() => {
@@ -43,10 +55,29 @@ const Index = () => {
     }
   };
 
+  const fetchCategories = async () => {
+    try {
+      const response = await fetch('https://fakestoreapi.com/products/categories');
+      const data = await response.json();
+      setCategories(data);
+    } catch (error) {
+      console.error('Error fetching categories:', error);
+    }
+  };
+
   const handleSearch = (searchTerm: string) => {
     const filtered = products.filter(product => 
-      product.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      product.description.toLowerCase().includes(searchTerm.toLowerCase())
+      (selectedCategory === 'all' || product.category === selectedCategory) &&
+      (product.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      product.description.toLowerCase().includes(searchTerm.toLowerCase()))
+    );
+    setFilteredProducts(filtered);
+  };
+
+  const handleCategoryChange = (category: string) => {
+    setSelectedCategory(category);
+    const filtered = products.filter(product => 
+      category === 'all' || product.category === category
     );
     setFilteredProducts(filtered);
   };
@@ -92,24 +123,50 @@ const Index = () => {
     <div className="container mx-auto px-4 py-8">
       <div className="flex justify-between items-center mb-8">
         <h1 className="text-3xl font-bold text-primary">E-Commerce Store</h1>
-        <Sheet>
-          <SheetTrigger asChild>
-            <Button variant="outline" className="relative">
-              <ShoppingCart className="h-5 w-5 mr-2" />
-              <span>Cart ({cartItems.reduce((acc, item) => acc + item.quantity, 0)})</span>
-            </Button>
-          </SheetTrigger>
-          <SheetContent>
-            <Cart
-              items={cartItems}
-              updateQuantity={updateQuantity}
-              removeFromCart={removeFromCart}
-            />
-          </SheetContent>
-        </Sheet>
+        <div className="flex gap-4">
+          <Button variant="outline" onClick={() => navigate('/profile')}>
+            <User className="h-5 w-5 mr-2" />
+            Profile
+          </Button>
+          <Sheet>
+            <SheetTrigger asChild>
+              <Button variant="outline" className="relative">
+                <ShoppingCart className="h-5 w-5 mr-2" />
+                <span>Cart ({cartItems.reduce((acc, item) => acc + item.quantity, 0)})</span>
+              </Button>
+            </SheetTrigger>
+            <SheetContent>
+              <Cart
+                items={cartItems}
+                updateQuantity={updateQuantity}
+                removeFromCart={removeFromCart}
+              />
+            </SheetContent>
+          </Sheet>
+        </div>
       </div>
       
-      <SearchBar onSearch={handleSearch} />
+      <div className="flex gap-4 mb-8">
+        <div className="flex-1">
+          <SearchBar onSearch={handleSearch} />
+        </div>
+        <Select
+          value={selectedCategory}
+          onValueChange={handleCategoryChange}
+        >
+          <SelectTrigger className="w-[200px]">
+            <SelectValue placeholder="Select category" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All Categories</SelectItem>
+            {categories.map((category) => (
+              <SelectItem key={category} value={category}>
+                {category}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
       
       {loading ? (
         <div className="flex justify-center items-center h-64">
